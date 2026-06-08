@@ -66,6 +66,14 @@
         let cross = nixpkgsFor.aarch64-darwin.pkgsCross.x86_64-darwin; in
         (mkPkg { rustPlatform = cross.rustPlatform; }).overrideAttrs (old: {
           buildInputs = [ cross.pkgsStatic.libiconv ] ++ (old.buildInputs or [ ]);
+          # buildInputs above only covers the target (x86_64) link. But in this
+          # arm→x86 cross the proc-macros are compiled for the BUILD host
+          # (aarch64) and rustc links each one as a `.dylib` with `-liconv` —
+          # and the build→build cc-wrapper has no libiconv in its search path,
+          # so that link fails. (unpin only escapes this because its proc-macro
+          # dylibs come pre-built from cachix; a cold/new crate links them and
+          # breaks.) Feed the build-platform libiconv to the build→build linker.
+          NIX_LDFLAGS_FOR_BUILD = "-L${cross.buildPackages.libiconv}/lib";
         });
 
       # Shared rustup-distributed toolchain: rustc as a native binary plus a
