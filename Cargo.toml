@@ -1,0 +1,28 @@
+[package]
+name = "unpin-readme"
+version = "0.1.0"
+edition = "2024"
+description = "The unpin readme renderer — renders the README an unpins program carries inside itself (the `unpin readme` verb)."
+license = "MIT"
+repository = "https://github.com/unpins/unpin-readme"
+homepage = "https://unpins.org"
+
+[[bin]]
+name = "unpin-readme"
+path = "src/main.rs"
+
+[dependencies]
+# termimad: markdown → styled terminal text *and* the scrollable view we page
+# with. Pure-Rust over crossterm, no C deps, so it cross-compiles statically to
+# every unpin target the same way unpin itself does (mingw .exe, musl crosses,
+# darwin) — no cosmo needed. We drive its `MadView` ourselves so the markdown is
+# re-rendered at the live width on resize (reflow, like unpin-man's pager) — an
+# external/embedded text pager only re-wraps already-wrapped lines.
+termimad = "0.34"
+# minreq + rustls: the same lightweight, pure-Rust HTTPS client unpin uses, for
+# the repo-fetch fallback (until READMEs are embedded in the bundle).
+minreq = { version = "2", default-features = false, features = ["https-rustls"] }
+
+[profile.release]
+strip = true
+lto = true

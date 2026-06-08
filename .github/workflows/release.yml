@@ -1,0 +1,23 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: unpins/action-build/.github/workflows/release.yml@main
+    with:
+      # No `.#manifest` in this hand-rolled flake — pass inputs explicitly.
+      package_name: 'unpin-readme'
+      package_data: false
+      # First-party unpins software, versioned from Cargo.toml (not a
+      # repackaged upstream like unpin-man) — tags as v<version>, like unpin.
+      own_software: true
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
