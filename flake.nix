@@ -72,11 +72,12 @@
           # and the build→build cc-wrapper has no libiconv in its search path,
           # so that link fails. (unpin only escapes this because its proc-macro
           # dylibs come pre-built from cachix; a cold/new crate links them and
-          # breaks.) depsBuildBuild puts the build-platform (aarch64) libiconv
-          # on that wrapper's search path via its setup hook — and the arch
-          # MUST be the build one (`cross.buildPackages.libiconv`), not the
-          # target x86_64 libiconv, or the arm64 `-liconv` still won't resolve.
-          depsBuildBuild = [ cross.buildPackages.libiconv ] ++ (old.depsBuildBuild or [ ]);
+          # breaks.) `depsBuildBuild` did NOT populate the flag, so push the
+          # `-L` straight onto the var the build→build wrapper actually reads:
+          # `NIX_LDFLAGS_<suffixSalt>`, salt = arm64_apple_darwin (confirmed via
+          # `cross.buildPackages.stdenv.cc.suffixSalt`), with the build-arch
+          # (aarch64) libiconv — not the x86_64 target one.
+          NIX_LDFLAGS_arm64_apple_darwin = "-L${cross.buildPackages.libiconv}/lib";
         });
 
       # Shared rustup-distributed toolchain: rustc as a native binary plus a
