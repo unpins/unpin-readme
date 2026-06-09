@@ -44,11 +44,19 @@
           doCheck = false;
         }).overrideAttrs (_: { stripAllList = [ "bin" ]; });
 
+      # withDnsFallback links the __wrap_getaddrinfo archive into the
+      # linux-static binary so it resolves names where /etc/resolv.conf is
+      # absent (Android, minimal containers) — unpin-readme fetches over the
+      # network, so it needs the same fix unpin and the C catalog get. Rust's
+      # std::net resolution emits the libc getaddrinfo symbol, caught by the
+      # `--wrap` at the final cc-driven link. No-op on darwin/windows; the cross
+      # targets get it too via mkCross (unsalted NIX_LDFLAGS → cross host
+      # cc-wrapper). See unpins/nix-lib withDnsFallback.
       nativePkg = system:
-        mkPkg {
+        ulib.withDnsFallback nixpkgsFor.${system}.pkgsStatic (mkPkg {
           rustPlatform = nixpkgsFor.${system}.pkgsStatic.rustPlatform;
           env.RUSTFLAGS = "-C relocation-model=static";
-        };
+        });
 
       # auditable=false: rustc + LTO + cargo-auditable overflows mingw's 32-bit
       # relocation limit. Plain `cargo build --target` skips auditable.
@@ -98,14 +106,14 @@
       # `CC_<TARGET>`/`CARGO_TARGET_<TARGET>_LINKER` into the build hook.
       mkCross = crossPkgs:
         let rust = rustToolchain crossPkgs.buildPackages; in
-        mkPkg {
+        ulib.withDnsFallback crossPkgs.pkgsStatic (mkPkg {
           rustPlatform = crossPkgs.makeRustPlatform { cargo = rust; rustc = rust; };
           auditable = false;
           # rust-overlay's musl specs default to crt-static=false (rustup's
           # convention); the explicit `+crt-static` keeps the binary from
           # carrying a musl dynamic-link interpreter that action-build rejects.
           env.RUSTFLAGS = "-C target-feature=+crt-static";
-        };
+        });
 
       linuxI686Pkg    = mkCross nixpkgsFor.x86_64-linux.pkgsCross.musl32;
       linuxPpc64lePkg = mkCross nixpkgsFor.x86_64-linux.pkgsCross.musl-power;
