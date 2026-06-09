@@ -12,6 +12,11 @@
 use std::io::Read;
 use std::process::{Command, ExitCode};
 
+// Provides `unpin_readurl`, the optional generic HTTP-fetch hook the static-musl
+// DNS fallback shim (nix-lib/dns-fallback) calls to do DoH when UDP/53 is
+// blocked. Linked, never called from Rust — kept by `#[no_mangle]`, bound by
+// the C archive.
+mod readurl;
 mod fetch;
 mod render;
 
