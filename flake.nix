@@ -60,19 +60,25 @@
 
       # auditable=false: rustc + LTO + cargo-auditable overflows mingw's 32-bit
       # relocation limit. Plain `cargo build --target` skips auditable.
-      windowsPkg = mkPkg {
+      # withDnsFallback now links the fallback on windows too (--wrap + the
+      # COFF-compiled archive), so unpin-readme's repo-fetch resolves names when
+      # the OS resolver can't be reached.
+      windowsPkg = ulib.withDnsFallback nixpkgsFor.x86_64-linux.pkgsCross.mingwW64 (mkPkg {
         rustPlatform = nixpkgsFor.x86_64-linux.pkgsCross.mingwW64.rustPlatform;
         auditable = false;
-      };
+      });
 
       # rustc injects `-liconv` on darwin; the default cross stdenv ships
       # libiconv as a dylib, which action-build rejects. pkgsStatic.libiconv
       # first on buildInputs makes the linker pick the `.a` and emit no dylib
       # load command. Only libiconv goes static — the rest of the cross stays
       # non-static so the broken cctools/xar-static cascade isn't pulled in.
+      # withDnsFallback on the non-static `cross` scope (darwin needs only a .a
+      # for ld64 -force_load, sidestepping the broken cross-darwin pkgsStatic).
       darwinX86Pkg =
         let cross = nixpkgsFor.aarch64-darwin.pkgsCross.x86_64-darwin; in
-        (mkPkg { rustPlatform = cross.rustPlatform; }).overrideAttrs (old: {
+        ulib.withDnsFallback cross
+        ((mkPkg { rustPlatform = cross.rustPlatform; }).overrideAttrs (old: {
           buildInputs = [ cross.pkgsStatic.libiconv ] ++ (old.buildInputs or [ ]);
           # buildInputs above only covers the target (x86_64) link. But in this
           # arm→x86 cross the proc-macros are compiled for the BUILD host
@@ -86,7 +92,7 @@
           # `cross.buildPackages.stdenv.cc.suffixSalt`), with the build-arch
           # (aarch64) libiconv — not the x86_64 target one.
           NIX_LDFLAGS_arm64_apple_darwin = "-L${cross.buildPackages.libiconv}/lib";
-        });
+        }));
 
       # Shared rustup-distributed toolchain: rustc as a native binary plus a
       # precompiled `rust-std-<triple>` per cross target — no source build of
